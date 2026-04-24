@@ -3,47 +3,67 @@
 // ============================================================
 import './KpiCards.css';
 
-const formatCurrency = (num) => {
-  if (!num) return '0₫';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(num);
-};
-
-// Hàm chuyển đổi hex thành rgb (để dùng rgba trong CSS variable)
-const hexToRgb = (hex) => {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255,255,255';
-};
-
 const Card = ({ label, value, sub, color, icon, delay }) => {
-  const rgbColor = hexToRgb(color);
   return (
-    <div className={`kpi-card fade-up ${delay}`} style={{ 
-      '--card-accent': color, 
-      '--card-accent-alpha': `rgba(${rgbColor}, 0.15)`,
-      '--card-accent-alpha-dark': `rgba(${rgbColor}, 0.3)`
-    }}>
-      <div className="kpi-card__glow" />
-      <div className="kpi-card__header">
-        <div className="kpi-card__label">{label}</div>
-        <div className="kpi-card__icon">{icon}</div>
+    <div 
+      className={`kpi-card fade-up ${delay}`}
+      style={{
+        background: `radial-gradient(circle at 90% 10%, ${color}25 0%, #151822 55%, #151822 100%)`,
+        borderColor: '#1e2235',
+        padding: '24px',
+        borderRadius: '12px',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: '#cbd5e1', textTransform: 'uppercase' }}>
+          {label}
+        </span>
+        <div 
+          style={{ 
+            background: `${color}15`, 
+            border: `1px solid ${color}40`, 
+            width: '32px', height: '32px', borderRadius: '8px', fontSize: '14px',
+            boxShadow: `inset 0 0 8px ${color}10`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+        >
+          {icon}
+        </div>
       </div>
-      <div className="kpi-card__body">
-        <div className="kpi-card__value">{value}</div>
-        {sub && <div className="kpi-card__sub">{sub}</div>}
+      
+      <div style={{ fontSize: '32px', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', marginBottom: '16px' }}>
+        {value}
+      </div>
+      
+      <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', marginBottom: '12px' }} />
+      
+      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+        {sub}
       </div>
     </div>
   );
 };
 
-const KpiCards = ({ leadKPIs, tacNghiepKPIs, saleKPIs }) => {
+const KpiCards = ({ leadKPIs }) => {
   if (!leadKPIs) return null;
+
+  const STATS = [
+    { id: 'total', label: 'Tổng Lead', value: leadKPIs.total, pct: '100', color: '#6366f1', icon: '📊' }, // Indigo
+    { id: 'knm', label: 'Không nghe máy', value: leadKPIs.knmCount, pct: leadKPIs.knmRate, color: '#ef4444', icon: '📞' }, // Red
+    { id: 'zalo', label: 'Kết nối Zalo', value: leadKPIs.zaloCount, pct: leadKPIs.zaloRate, color: '#0ea5e9', icon: '💬' }, // Sky Blue (Đúng màu thương hiệu Zalo)
+    { id: 'fit', label: 'Tỷ lệ Fit', value: leadKPIs.fitCount, pct: leadKPIs.fitRate, color: '#eab308', icon: '🎯' }, // Yellow
+    { id: 'rac', label: 'Lead rác / kho', value: leadKPIs.rachCount, pct: leadKPIs.rachRate, color: '#ec4899', icon: '🗑️' }, // Pink (thay cho Xám cũ)
+  ];
+
   return (
-    <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-      <Card delay="" icon="📊" label="Tổng Lead" value={leadKPIs.total.toLocaleString('vi-VN')} sub="100%" color="#6366f1" />
-      <Card delay="fade-up-1" icon="📞" label="Không nghe máy" value={leadKPIs.knmCount.toLocaleString('vi-VN')} sub={`${leadKPIs.knmRate}% trên tổng`} color="#f43f5e" />
-      <Card delay="fade-up-2" icon="💬" label="Kết nối Zalo" value={leadKPIs.zaloCount.toLocaleString('vi-VN')} sub={`${leadKPIs.zaloRate}% trên tổng`} color="#10b981" />
-      <Card delay="fade-up-3" icon="🎯" label="Tỷ lệ Fit" value={leadKPIs.fitCount.toLocaleString('vi-VN')} sub={`${leadKPIs.fitRate}% trên tổng`} color="#f59e0b" />
-      <Card delay="fade-up-4" icon="🗑️" label="Lead rác / kho" value={leadKPIs.rachCount.toLocaleString('vi-VN')} sub={`${leadKPIs.rachRate}% trên tổng`} color="#64748b" />
+    <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px' }}>
+      {STATS.map((s, index) => (
+        <Card key={s.id} delay={`fade-up-${index}`} icon={s.icon} label={s.label} value={s.value.toLocaleString('vi-VN')} sub={s.id === 'total' ? '100%' : `${s.pct}% trên tổng`} color={s.color} />
+      ))}
     </div>
   );
 };

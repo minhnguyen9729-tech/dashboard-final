@@ -6,25 +6,25 @@
 
 /* ── TOKENS ─────────────────────────────────────────────── */
 :root {
-  /* Background mesh */
-  --bg-base:        #080b14;
-  --bg-layer1:      #0d1120;
-  --bg-layer2:      #111827;
+  /* Background mesh - Tông tối hoàn toàn như thiết kế */
+  --bg-base:        #090a0f;
+  --bg-layer1:      #0d0e15;
+  --bg-layer2:      #0f111a;
 
-  /* Glass surfaces (three depths) - Tăng tương phản */
-  --glass-1:        rgba(0,0,0,0.25);         /* furthest back */
-  --glass-2:        rgba(13,17,32,0.45);      /* mid - darker for contrast */
-  --glass-3:        rgba(255,255,255,0.05);   /* front / hover */
-  --glass-border:   rgba(255,255,255,0.15);   /* Viền sáng hơn để rõ bố cục */
-  --glass-border-h: rgba(255,255,255,0.35);
+  /* Glass surfaces — Glassmorphism: bán trong suốt + blur */
+  --glass-1:        rgba(10, 12, 20, 0.55);        /* furthest back */
+  --glass-2:        rgba(15, 17, 26, 0.65);        /* mid - thẻ card chính */
+  --glass-3:        rgba(255,255,255,0.05);        /* front / hover */
+  --glass-border:   rgba(255,255,255,0.07);        /* Viền card chuẩn UI */
+  --glass-border-h: rgba(255,255,255,0.14);
 
-  /* Accent palette */
-  --c-indigo:   #818cf8; /* Sáng hơn chút */
-  --c-violet:   #a78bfa;
-  --c-cyan:     #22d3ee;
-  --c-emerald:  #34d399;
-  --c-amber:    #fbbf24;
-  --c-rose:     #fb7185;
+  /* Accent palette - Tông sáng neon */
+  --c-indigo:   #6366f1;
+  --c-violet:   #8b5cf6;
+  --c-cyan:     #0ea5e9;
+  --c-emerald:  #22c55e;
+  --c-amber:    #eab308;
+  --c-rose:     #ef4444;
   --c-slate:    #94a3b8;
 
   /* Gradient helpers */
@@ -117,44 +117,34 @@ body::after {
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
-/* ── GLASS CARD ──────────────────────────────────────────── */
+/* ── CARD MỚI THEO CHUẨN ẢNH ─────────────────────────────── */
 .card {
   position: relative;
   background: var(--glass-2);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   padding: 22px;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
   transition: border-color .25s, box-shadow .25s, transform .2s;
   overflow: hidden;
   z-index: 1;
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,.05) 0%, transparent 60%);
-  border-radius: inherit;
-  pointer-events: none;
-}
-
 .card:hover {
-  border-color: var(--glass-border-h);
-  box-shadow: var(--shadow-lg), var(--glow-indigo);
-  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.14);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  transform: translateY(-4px);
+  z-index: 5;
 }
 
-/* Deeper glass (for nested or secondary elements) */
+/* Deeper element */
 .card-inner {
   background: var(--glass-1);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
 }
 
 /* ── SECTION HEADER ──────────────────────────────────────── */

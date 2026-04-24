@@ -6,7 +6,7 @@ import './assets/css/base.css';
 import './App.css';
 
 import { parseExcelFile } from './utils/excelParser';
-import { calcLeadKPIs, calcTacNghiepKPIs, calcSaleKPIs } from './utils/kpiEngine';
+import { calcLeadKPIs, calcTacNghiepKPIs, calcSaleKPIs, calcInsightKPIs } from './utils/kpiEngine';
 import { saveToCache, loadFromCache, clearCache } from './utils/storage';
 
 import UploadArea from './components/UploadArea';
@@ -15,13 +15,16 @@ import FunnelChart from './components/Charts/FunnelChart';
 import TeamQualityChart from './components/Charts/TeamQualityChart';
 import SaleLeaderboard from './components/Charts/SaleLeaderboard';
 import HeatmapChart from './components/Charts/HeatmapChart';
+import CustomerInsights from './components/Charts/CustomerInsights';
 
 // --- Bộ lọc ngày ---
 const filterByDate = (data, from, to) => {
   if (!from && !to) return data;
   return data.filter((d) => {
     if (!d.ngayDataVe) return false;
-    const t = d.ngayDataVe.getTime();
+    const dt = new Date(d.ngayDataVe);
+    if (isNaN(dt)) return false;
+    const t = dt.getTime();
     if (from && t < new Date(from).getTime()) return false;
     if (to && t > new Date(to + 'T23:59:59').getTime()) return false;
     return true;
@@ -78,6 +81,7 @@ function App() {
   const leadKPIs = useMemo(() => filteredData.length ? calcLeadKPIs(filteredData) : null, [filteredData]);
   const tacNghiepKPIs = useMemo(() => filteredData.length ? calcTacNghiepKPIs(filteredData) : null, [filteredData]);
   const saleKPIs = useMemo(() => filteredData.length ? calcSaleKPIs(filteredData) : null, [filteredData]);
+  const insightKPIs = useMemo(() => filteredData.length ? calcInsightKPIs(filteredData) : null, [filteredData]);
 
   // Danh sách Sale duy nhất để dropdown lọc
   const allTeams = [...new Set(rawData.map((d) => d.team))].filter(Boolean).sort();
@@ -131,18 +135,23 @@ function App() {
               <FunnelChart funnelData={tacNghiepKPIs?.funnelData || {}} total={filteredData.length} />
             </div>
 
-            {/* Row 2: Chất lượng tác nghiệp */}
+            {/* Row 2: Customer Insights */}
             <div className="fade-up fade-up-2">
+              <CustomerInsights insightKPIs={insightKPIs} />
+            </div>
+
+            {/* Row 3: Chất lượng tác nghiệp */}
+            <div className="fade-up fade-up-3">
               <TeamQualityChart tacNghiepKPIs={tacNghiepKPIs} teamList={saleKPIs?.teamList} total={filteredData.length} />
             </div>
 
-            {/* Row 3: Leaderboard L2+ */}
-            <div className="fade-up fade-up-3">
+            {/* Row 4: Leaderboard L2+ */}
+            <div className="fade-up fade-up-4">
               <SaleLeaderboard saleList={saleKPIs?.saleList} />
             </div>
 
-            {/* Row 4: Heatmap */}
-            <div className="fade-up fade-up-4">
+            {/* Row 5: Heatmap */}
+            <div className="fade-up" style={{ animationDelay: '0.5s' }}>
               <HeatmapChart heatmapData={tacNghiepKPIs?.heatmapData} hourlyDist={tacNghiepKPIs?.hourlyDist} />
             </div>
           </>

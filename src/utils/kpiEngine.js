@@ -106,20 +106,20 @@ export const calcTacNghiepKPIs = (data) => {
 
   // Phân bổ lead theo giờ (từ ngày data về)
   const hourlyDist = Array(24).fill(0);
-  data.forEach((d) => {
-    if (d.ngayDataVe instanceof Date && !isNaN(d.ngayDataVe)) {
-      hourlyDist[d.ngayDataVe.getHours()]++;
-    }
-  });
-
-  // Heatmap: ngày x giờ
   const heatmapData = {};
+  
   data.forEach((d) => {
-    if (d.ngayDataVe instanceof Date && !isNaN(d.ngayDataVe)) {
-      const dateStr = d.ngayDataVe.toLocaleDateString('vi-VN');
-      const hour = d.ngayDataVe.getHours();
-      if (!heatmapData[dateStr]) heatmapData[dateStr] = Array(24).fill(0);
-      heatmapData[dateStr][hour]++;
+    if (d.ngayDataVe) {
+      const dt = new Date(d.ngayDataVe);
+      if (!isNaN(dt)) {
+        // Cộng giờ
+        hourlyDist[dt.getHours()]++;
+        
+        // Cập nhật Heatmap (nếu cần dùng sau này)
+        const dateStr = dt.toLocaleDateString('vi-VN');
+        if (!heatmapData[dateStr]) heatmapData[dateStr] = Array(24).fill(0);
+        heatmapData[dateStr][dt.getHours()]++;
+      }
     }
   });
 
@@ -209,4 +209,61 @@ export const calcSaleKPIs = (data) => {
   const tongChot = saleList.reduce((sum, s) => sum + s.chot, 0);
 
   return { saleList, teamList, tongDoanhThu, tongChot };
+};
+
+// ============================================================
+// NHÓM 4: CUSTOMER INSIGHTS
+// ============================================================
+export const calcInsightKPIs = (data) => {
+  const insights = {
+    quyMo: {},
+    chucDanh: {},
+    congCu: {},
+    congCuNhuCau: [],
+    saleTags: {}
+  };
+
+  const nhuCauMap = {};
+
+  data.forEach((d) => {
+    // 1. Quy mô
+    if (d.quyMo) {
+      insights.quyMo[d.quyMo] = (insights.quyMo[d.quyMo] || 0) + 1;
+    }
+
+    // 2. Chức danh
+    if (d.chucDanh) {
+      insights.chucDanh[d.chucDanh] = (insights.chucDanh[d.chucDanh] || 0) + 1;
+    }
+
+    // Mới: Đếm số lượng Công cụ
+    if (d.congCu) {
+      insights.congCu[d.congCu] = (insights.congCu[d.congCu] || 0) + 1;
+    }
+
+    // 3. Nhu cầu x Công cụ
+    if (d.nhuCau) {
+      if (!nhuCauMap[d.nhuCau]) nhuCauMap[d.nhuCau] = { excel: 0, crm: 0, khac: 0 };
+      if (d.congCu === 'Excel / Google Sheets') nhuCauMap[d.nhuCau].excel++;
+      else if (d.congCu === 'CRM / Phần mềm khác') nhuCauMap[d.nhuCau].crm++;
+      else nhuCauMap[d.nhuCau].khac++;
+    }
+
+    // 4. Sale Tags
+    if (d.saleTags && Array.isArray(d.saleTags)) {
+      d.saleTags.forEach(tag => {
+        insights.saleTags[tag] = (insights.saleTags[tag] || 0) + 1;
+      });
+    }
+  });
+
+  // Chuyển NhuCauMap thành mảng
+  insights.congCuNhuCau = Object.keys(nhuCauMap).map(k => ({
+    name: k,
+    'Excel / Google Sheets': nhuCauMap[k].excel,
+    'CRM / Phần mềm khác': nhuCauMap[k].crm,
+    'Khác': nhuCauMap[k].khac
+  })).sort((a, b) => (b['Excel / Google Sheets'] + b['CRM / Phần mềm khác']) - (a['Excel / Google Sheets'] + a['CRM / Phần mềm khác']));
+
+  return insights;
 };

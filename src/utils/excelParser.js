@@ -84,6 +84,77 @@ const validateHeaders = (headers) => {
   }
 };
 
+// --- Bóc tách Customer Insights từ Tin nhắn khách hàng ---
+const parseCustomerInsights = (text) => {
+  if (!text) return { quyMo: null, congCu: null, nhuCau: null, chucDanh: null };
+  const lower = String(text).toLowerCase();
+
+  let quyMo = null;
+  if (lower.match(/(bao nhiêu người|cho ai)[?:]/)) {
+    if (lower.includes('cá nhân')) quyMo = 'Cá nhân (1 user)';
+    else if (lower.includes('nhóm nhỏ') || lower.includes('dưới 10')) quyMo = 'Team nhỏ (<10 users)';
+    else if (lower.includes('phòng ban') || lower.includes('công ty') || lower.includes('trên 10')) quyMo = 'Doanh nghiệp (>10 users)';
+  }
+
+  let congCu = null;
+  if (lower.match(/(công cụ nào|công cụ đang sử dụng)[?:]/)) {
+    if (lower.includes('thủ công') || lower.includes('excel')) congCu = 'Excel / Google Sheets';
+    else if (lower.includes('crm') || lower.includes('phần mềm')) congCu = 'CRM / Phần mềm khác';
+  }
+
+  let nhuCau = null;
+  if (lower.match(/(tính năng chính nào|vấn đề lớn nhất)[?:]/)) {
+    if (lower.includes('may đo') || lower.includes('dashboard')) nhuCau = 'Dashboard Customize';
+    else if (lower.includes('giao việc') || lower.includes('tiến độ')) nhuCau = 'Quản lý Công việc';
+    else if (lower.includes('tổng hợp') || lower.includes('thời gian')) nhuCau = 'Tự động hoá báo cáo';
+  }
+
+  let chucDanh = null;
+  const jobMatch = lower.match(/job title:\s*(.*)/);
+  if (jobMatch && jobMatch[1]) {
+    const job = jobMatch[1].trim();
+    // Bỏ qua rác (email, sếp quan tâm, số, câu trả lời yes/no)
+    if (job.match(/email:|sếp quan tâm|r3|yes|ok|không|\.|^\d+$/)) {
+      chucDanh = null;
+    }
+    // C-Level: giám đốc, ceo, founder, director, gd, gđ, pgd, gm, chief
+    else if (job.match(/(giám đốc|giam doc|ceo|founder|owner|director|gđ|gd|pgd|gm|chief|co-founder)/)) {
+      chucDanh = 'C-Level (Người ra quyết định)';
+    }
+    // Manager: quản lý, trưởng, tp, manager, hrm, lead, ktt (kế toán trưởng), giám sát, head, quản đốc
+    else if (job.match(/(quản lý|quan ly|trưởng|truong|tp|manager|hrm|lead|ktt|giám sát|head|quản đốc|quan doc|dean)/)) {
+      chucDanh = 'Manager (Quản lý cấp trung)';
+    }
+    // Staff: hr, kế toán, kt, sale, nhân viên, nv, chuyên viên, admin, accountant, kỹ thuật, engineer, marketing, trợ lý
+    else if (job.match(/(hr|kế toán|ke toan|kt|sale|nhân viên|nv|chuyên viên|admin|accountant|kỹ thuật|engineer|marketing|trợ lý|ops|pharmacist|technician|inspector|freelance)/)) {
+      chucDanh = 'Staff (Người dùng trực tiếp)';
+    }
+    else {
+      chucDanh = null; // Loại bỏ hoàn toàn nhóm "Khác" khỏi biểu đồ
+    }
+  }
+
+  return { quyMo, congCu, nhuCau, chucDanh };
+};
+
+// --- Gắn thẻ Sale Notes từ Tin nhắn nội bộ ---
+const parseSaleTags = (text) => {
+  if (!text) return [];
+  const lower = String(text).toLowerCase();
+  const tags = [];
+  
+  // Dựa trên text thực tế từ team Sale
+  if (lower.match(/(giá|chi phí|đắt)/)) tags.push('Hỏi về Giá/Chi phí');
+  if (lower.match(/(bận|họp|gọi lại sau|để sau)/)) tags.push('Khách đang Bận');
+  if (lower.match(/(zalo)/)) tags.push('Yêu cầu qua Zalo');
+  if (lower.match(/(tò mò|học hỏi|khóa học|không quan tâm|chưa xác định)/)) tags.push('Sai tệp / Chỉ tham khảo');
+  if (lower.match(/(thuê bao|lỗi số|tắt máy)/)) tags.push('Thuê bao / Số ảo');
+  if (lower.match(/(để xem|chưa xem)/)) tags.push('Chờ xem tài liệu');
+  if (lower.match(/(trùng số|đã liên hệ)/)) tags.push('Trùng Data');
+  
+  return tags;
+};
+
 // --- Hàm chính: Đọc file Excel và parse ---
 export const parseExcelFile = (file) => {
   return new Promise((resolve, reject) => {
@@ -98,14 +169,10 @@ export const parseExcelFile = (file) => {
 
         if (rawRows.length < 2) throw new Error('File Excel không có dữ liệu.');
 
-        // Lấy header row, chuẩn hoá
         const rawHeaders = rawRows[0];
         const normalizedHeaders = rawHeaders.map(normalizeKey);
-
-        // Validate cột bắt buộc
         validateHeaders(normalizedHeaders);
 
-        // Hàm lấy value theo tên cột (đã chuẩn hoá)
         const getCol = (row, colName) => {
           const idx = normalizedHeaders.indexOf(normalizeKey(colName));
           return idx >= 0 ? row[idx] : null;
@@ -114,12 +181,13 @@ export const parseExcelFile = (file) => {
         const parsed = rawRows.slice(1).map((row, idx) => {
           const tinNhanNoiBo = getCol(row, 'tin nhắn nội bộ');
           const ketQuaTacNghiep = getCol(row, 'kết quả tác nghiệp');
+          const tinNhanKhachHang = getCol(row, 'tin nhắn khách hàng');
           let nhanArr = parseLabels(getCol(row, 'nhãn khách hàng'));
-
-          // Apply Rule KNM
           nhanArr = applyKnmRule(tinNhanNoiBo, ketQuaTacNghiep, nhanArr);
 
           const saleName = getCol(row, 'sale');
+          const insights = parseCustomerInsights(tinNhanKhachHang);
+          const saleTags = parseSaleTags(tinNhanNoiBo);
 
           return {
             id: idx + 1,
@@ -131,7 +199,7 @@ export const parseExcelFile = (file) => {
             thanhTien: getCol(row, 'thành tiền'),
             ngayChot: parseExcelDate(getCol(row, 'ngày chốt đơn hàng')),
             nhanKhachHang: nhanArr,
-            tinNhanKhachHang: getCol(row, 'tin nhắn khách hàng'),
+            tinNhanKhachHang,
             nguonKhach: getCol(row, 'nguồn khách'),
             ngayDataVe: parseExcelDate(getCol(row, 'ngày data về')),
             tacNghiepCan: getCol(row, 'tác nghiệp cần'),
@@ -139,8 +207,10 @@ export const parseExcelFile = (file) => {
             ketQuaTacNghiep,
             ngayBatDauTacNghiep: parseExcelDate(getCol(row, 'ngày sale bắt đầu tác nghiệp')),
             ngayCapNhatTacNghiep: parseExcelDate(getCol(row, 'ngày sale cập nhật tác nghiệp')),
+            ...insights,
+            saleTags,
           };
-        }).filter((r) => r.khachHang); // Lọc bỏ row trống
+        }).filter((r) => r.khachHang);
 
         resolve(parsed);
       } catch (err) {
