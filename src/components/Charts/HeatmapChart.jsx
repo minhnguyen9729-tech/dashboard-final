@@ -136,12 +136,27 @@ const HeatmapChart = ({ hourlyDist = Array(24).fill(0), heatmapData = {} }) => {
               </div>
               {/* Rows (Dates) */}
               {(() => {
-                const sortedDates = Object.keys(heatmapData).sort((a, b) => {
+                let sortedDates = Object.keys(heatmapData).sort((a, b) => {
                   const [d1, m1, y1] = a.split('/');
                   const [d2, m2, y2] = b.split('/');
                   return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
                 });
                 
+                // Lọc lấy tối đa 3 tháng gần nhất (để tránh quá tải màn hình)
+                if (sortedDates.length > 0) {
+                  const lastDateStr = sortedDates[sortedDates.length - 1];
+                  const [ld, lm, ly] = lastDateStr.split('/');
+                  const maxDate = new Date(ly, lm - 1, ld);
+                  const threeMonthsAgo = new Date(maxDate);
+                  threeMonthsAgo.setMonth(maxDate.getMonth() - 3);
+                  
+                  sortedDates = sortedDates.filter(dateStr => {
+                    const [d, m, y] = dateStr.split('/');
+                    const dt = new Date(y, m - 1, d);
+                    return dt >= threeMonthsAgo;
+                  });
+                }
+
                 let globalMax = 1;
                 sortedDates.forEach(date => {
                   heatmapData[date].forEach(val => {
@@ -154,44 +169,38 @@ const HeatmapChart = ({ hourlyDist = Array(24).fill(0), heatmapData = {} }) => {
                     <div style={{ width: 60, fontSize: 10, color: '#94a3b8', textAlign: 'right', paddingRight: 10, flexShrink: 0 }}>{date.slice(0, 5)}</div>
                     <div style={{ display: 'flex', flex: 1, gap: 2 }}>
                       {heatmapData[date].map((val, i) => {
-                        // --- Thang màu Tím Neon đơn sắc (dễ đọc trên nền đen) ---
-                        // 0 lead: nền tối | thấp → tím sâu | trung → tím neon | cao → hồng neon sáng
+                        // --- Thang màu Tím Neon xuyên thấu (Glassmorphism) ---
                         let bg, border, textColor;
                         if (val === 0) {
-                          bg = '#0e1117';
-                          border = '1px solid #1e2235';
+                          bg = 'rgba(255, 255, 255, 0.02)';
+                          border = '1px solid rgba(255, 255, 255, 0.05)';
                           textColor = 'transparent';
                         } else {
                           const t = Math.min(val / globalMax, 1);
-                          // Dùng 4 mốc màu rõ ràng, mỗi mốc cách nhau xa
                           let r, g, b;
                           if (t < 0.2) {
-                            // Tím đen → Tím đậm
                             const a = t / 0.2;
                             r = Math.round(30 + a * 58);   // 30 → 88
                             g = Math.round(10 + a * 18);   // 10 → 28
                             b = Math.round(60 + a * 90);   // 60 → 150
                           } else if (t < 0.5) {
-                            // Tím đậm → Tím Violet neon
                             const a = (t - 0.2) / 0.3;
                             r = Math.round(88 + a * 96);   // 88 → 184
                             g = Math.round(28 + a * 30);   // 28 → 58
                             b = Math.round(150 + a * 93);  // 150 → 243
                           } else if (t < 0.8) {
-                            // Violet neon → Hồng Magenta
                             const a = (t - 0.5) / 0.3;
                             r = Math.round(184 + a * 48);  // 184 → 232
                             g = Math.round(58 - a * 30);   // 58 → 28
                             b = Math.round(243 - a * 113); // 243 → 130
                           } else {
-                            // Hồng Magenta sáng → Trắng neon (đỉnh điểm)
                             const a = (t - 0.8) / 0.2;
                             r = Math.round(232 + a * 23);  // 232 → 255
                             g = Math.round(28 + a * 50);   // 28 → 78
                             b = Math.round(130 + a * 80);  // 130 → 210
                           }
-                          bg = `rgb(${r}, ${g}, ${b})`;
-                          border = `1px solid rgba(${r}, ${g}, ${b}, 0.7)`;
+                          bg = `rgba(${r}, ${g}, ${b}, 0.6)`; // Opacity 0.6 cho độ xuyên thấu
+                          border = `1px solid rgba(${r}, ${g}, ${b}, 0.4)`;
                           textColor = t > 0.45 ? 'rgba(255,255,255,0.95)' : 'rgba(220,180,255,0.9)';
                         }
                         return (
@@ -202,6 +211,8 @@ const HeatmapChart = ({ hourlyDist = Array(24).fill(0), heatmapData = {} }) => {
                               flex: 1, 
                               height: 28,
                               background: bg, 
+                              backdropFilter: 'blur(8px)',
+                              WebkitBackdropFilter: 'blur(8px)',
                               borderRadius: 3, 
                               cursor: val > 0 ? 'pointer' : 'default', 
                               transition: 'all 0.15s ease',

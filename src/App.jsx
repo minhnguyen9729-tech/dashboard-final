@@ -1,21 +1,22 @@
 // ============================================================
 // App.jsx — Entry point chính, quản lý state & điều phối luồng
 // ============================================================
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import './assets/css/base.css';
 import './App.css';
 
 import { parseExcelFile } from './utils/excelParser';
 import { calcLeadKPIs, calcTacNghiepKPIs, calcSaleKPIs, calcInsightKPIs } from './utils/kpiEngine';
-import { saveToCache, loadFromCache, clearCache } from './utils/storage';
 
-import UploadArea from './components/UploadArea';
 import KpiCards from './components/KpiCards';
 import FunnelChart from './components/Charts/FunnelChart';
 import TeamQualityChart from './components/Charts/TeamQualityChart';
 import SaleLeaderboard from './components/Charts/SaleLeaderboard';
 import HeatmapChart from './components/Charts/HeatmapChart';
 import CustomerInsights from './components/Charts/CustomerInsights';
+
+// URL xuất CSV từ Google Sheets của bạn
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTN99GeMRYhJdG2Upn6DkoSX9iUwrgGOmfFdvGbzew7cvprqwh-OxZ0PMNBzu4zgg/pub?gid=1620005940&single=true&output=csv';
 
 // --- Bộ lọc ngày ---
 const filterByDate = (data, from, to) => {
@@ -40,9 +41,10 @@ const filterByTeamSale = (data, team, sale) => {
 };
 
 function App() {
-  const [rawData, setRawData] = useState(() => loadFromCache() || []);
+  const [rawData, setRawData] = useState([]);
   const [error, setError] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [fileName, setFileName] = useState('Google Sheets (Live)');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
   const [filterTeam, setFilterTeam] = useState('');
@@ -50,24 +52,38 @@ function App() {
 
   const hasData = rawData.length > 0;
 
-  // --- Upload handler ---
-  const handleFileLoaded = useCallback(async (file) => {
-    setError('');
-    const parsed = await parseExcelFile(file);
-    setRawData(parsed);
-    saveToCache(parsed);
-    setFileName(file.name);
-    setFilterFrom('');
-    setFilterTo('');
-    setFilterTeam('');
-    setFilterSale('');
+  // --- Auto Fetch from Google Sheets ---
+  useEffect(() => {
+    const fetchSheetData = async () => {
+      try {
+        setIsLoading(true);
+        // Kéo dữ liệu từ Google Sheets
+        const response = await fetch(SHEET_CSV_URL);
+        if (!response.ok) throw new Error('Không thể tải dữ liệu từ Google Sheets. Có thể link đã bị lỗi.');
+        
+        // Chuyển đổi dữ liệu tải về thành Blob để thư viện Excel đọc được
+        const blob = await response.blob();
+        
+        // Sử dụng lại hàm phân tích logic cũ (nó cũng đọc được CSV blob)
+        const parsed = await parseExcelFile(blob);
+        setRawData(parsed);
+      } catch (err) {
+        console.error(err);
+        setError(err.message || 'Lỗi khi tải dữ liệu từ Google Sheets.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSheetData();
   }, []);
 
-  const handleClear = () => {
-    clearCache();
+  const handleRefresh = () => {
     setRawData([]);
-    setFileName('');
     setError('');
+    setIsLoading(true);
+    // Bằng cách đổi key hoặc trigger reload, ở đây đơn giản reload lại trang
+    window.location.reload();
   };
 
   // --- Filtered data ---
@@ -113,7 +129,7 @@ function App() {
               <option value="">Tất cả Sale</option>
               {allSales.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <button className="btn-clear" onClick={handleClear}>🗑 Xoá dữ liệu</button>
+            <button className="btn-clear" onClick={handleRefresh}>🔄 Cập nhật dữ liệu</button>
           </div>
         )}
       </header>
@@ -123,8 +139,16 @@ function App() {
 
       {/* ===== MAIN CONTENT ===== */}
       <main className="app-main">
-        {!hasData ? (
-          <UploadArea onFileLoaded={handleFileLoaded} onError={setError} />
+        {isLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', color: '#94a3b8' }}>
+            <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: 16 }}></div>
+            <p style={{ fontSize: 16, fontWeight: 500 }}>Đang đồng bộ dữ liệu từ Google Sheets...</p>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        ) : !hasData ? (
+          <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: 40 }}>
+            {error ? 'Không thể tải dữ liệu.' : 'File Google Sheets đang trống hoặc cấu trúc không hợp lệ.'}
+          </div>
         ) : (
           <>
             {/* KPI Cards */}
